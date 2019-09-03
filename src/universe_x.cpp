@@ -45,27 +45,22 @@ void universe::spawnplayer(eosio::name acc, uint64_t sector_id) {
    eosio::print("\n Player joined! Congratulations ", acc);
 }
 
-
-
 void universe::setcyclic(eosio::name acc, bool allowed) {
    require_auth(acc);
 
    auto _state = _gstate.find(0);
    _gstate.modify(_state, get_self(), [&](auto& s) {
       s.cyclic_updates_allowed = allowed;
-         eosio::print("\n Updating global state CYCLIC ALLOWD:   ", allowed);
+         //eosio::print("\n Updating global state CYCLIC ALLOWD:   ", allowed);
    });
 }
 
-void universe::updatemap(uint64_t min_cycles, eosio::name acc, uint64_t delay, bool repeat)
+void universe::updatemap(eosio::name acc, uint64_t min_cycles, uint64_t iterations, uint64_t delay, bool repeat)
 {
    auto _state = _gstate.find(0);
-   eosio::print("\n Cyclic allowed: [0]  ", (*_state).cyclic_updates_allowed);
    if(_gstate.begin() == _gstate.end())
    {
-      _gstate.emplace(get_self(), [&](auto& s) {
-         s.last_update_cycle = now();
-      });
+      initstate();
    }
    else
    {
@@ -74,10 +69,15 @@ void universe::updatemap(uint64_t min_cycles, eosio::name acc, uint64_t delay, b
       });
    }
    
-   auto size = std::distance(_sectors.cbegin(),_sectors.cend());
+   // commented out due to excess CPU consumption
+   //auto num_sectors = std::distance(_sectors.cbegin(),_sectors.cend());
 
-   for (uint64_t i = 0; i < size; i++)
+   uint64_t num_sectors = (*_gstate.find(0)).active_sectors;
+   //   eosio::print("\n STATE UUP id:  ", (*_state).last_updated_id);
+   uint64_t count = 0;
+   for (uint64_t i = (*_state).last_updated_id; i <= num_sectors && count < iterations; i++)
    {
+      count++;
       auto planet = _sectors.find(i);
       if((*planet).has_planet)
       {
@@ -87,6 +87,10 @@ void universe::updatemap(uint64_t min_cycles, eosio::name acc, uint64_t delay, b
             updateplanet(i);
          }
       }
+      if(i == num_sectors)
+      {
+         i = 0;
+      }
    }
 
    // *************************************
@@ -95,7 +99,6 @@ void universe::updatemap(uint64_t min_cycles, eosio::name acc, uint64_t delay, b
    if(repeat && (*_state).cyclic_updates_allowed)
    {
       require_auth(_self);
-      eosio::print("\n SETCYCLIC UPDATE", 0);
         // always double check the action name as it will fail silently
         // in the deferred transaction
       eosio::transaction t{};
@@ -103,7 +106,7 @@ void universe::updatemap(uint64_t min_cycles, eosio::name acc, uint64_t delay, b
             eosio::permission_level(_self, "active"_n),
             _self, // who will receive this call
             "updatemap"_n, // function [action] call name
-            std::make_tuple(min_cycles, acc, delay, repeat)); // arguments for the action
+            std::make_tuple(acc, min_cycles, iterations, delay, repeat)); // arguments for the action
       t.delay_sec = delay;
       t.send(now(), _self, true);
    }
@@ -127,12 +130,12 @@ void universe::adminmodify(eosio::name acc,          // ADMIN account only
          if (mode == 1)
          {
             p.resources[gift_obj_id] = count;
-            eosio::print("\n -- -- -- -- -- -- -- -- -- \n Planetary RESOURCE is modified \n Modify mode is OVERWRITE \n setted    ", count, " of units of ", gift_obj_id);
+           // eosio::print("\n -- -- -- -- -- -- -- -- -- \n Planetary RESOURCE is modified \n Modify mode is OVERWRITE \n setted    ", count, " of units of ", gift_obj_id);
          }
          else if (mode == 2)
          {
             p.resources[gift_obj_id] += count;
-            eosio::print("\n -- -- -- -- -- -- -- -- -- \n Planetary RESOURCE is modified \n Modify mode is ADD \n added    ", count, " of units of ", gift_obj_id);
+           // eosio::print("\n -- -- -- -- -- -- -- -- -- \n Planetary RESOURCE is modified \n Modify mode is ADD \n added    ", count, " of units of ", gift_obj_id);
          }
       }
       if(type == 1)
@@ -141,12 +144,12 @@ void universe::adminmodify(eosio::name acc,          // ADMIN account only
          if (mode == 1)
          {
             p.planetary_buildings[gift_obj_id].level = count;
-            eosio::print("\n -- -- -- -- -- -- -- -- -- \n Planetary BUILDING is modified \n Modify mode is OVERWRITE \n setted    ", count, " level of ", gift_obj_id);
+           // eosio::print("\n -- -- -- -- -- -- -- -- -- \n Planetary BUILDING is modified \n Modify mode is OVERWRITE \n setted    ", count, " level of ", gift_obj_id);
          }
          else if (mode == 2)
          {
             p.planetary_buildings[gift_obj_id].level += count;
-            eosio::print("\n -- -- -- -- -- -- -- -- -- \n Planetary BUILDING is modified \n Modify mode is ADD \n added    ", count, " level of ", gift_obj_id);
+          //  eosio::print("\n -- -- -- -- -- -- -- -- -- \n Planetary BUILDING is modified \n Modify mode is ADD \n added    ", count, " level of ", gift_obj_id);
          }
       }
       if(type == 2)
@@ -155,12 +158,12 @@ void universe::adminmodify(eosio::name acc,          // ADMIN account only
          if (mode == 1)
          {
             p.planetary_fleet.ships[gift_obj_id] = count;
-            eosio::print("\n -- -- -- -- -- -- -- -- -- \n Planetary FLEET is modified \n Modify mode is OVERWRITE \n setted    ", count, " number of ships ", gift_obj_id);
+          //  eosio::print("\n -- -- -- -- -- -- -- -- -- \n Planetary FLEET is modified \n Modify mode is OVERWRITE \n setted    ", count, " number of ships ", gift_obj_id);
          }
          else if (mode == 2)
          {
             p.planetary_fleet.ships[gift_obj_id] += count;
-            eosio::print("\n -- -- -- -- -- -- -- -- -- \n Planetary FLEET is modified \n Modify mode is ADD \n added    ", count, " number of ships ", gift_obj_id);
+          //  eosio::print("\n -- -- -- -- -- -- -- -- -- \n Planetary FLEET is modified \n Modify mode is ADD \n added    ", count, " number of ships ", gift_obj_id);
          }
       }
    });
@@ -269,7 +272,7 @@ void universe::setupdate(eosio::name from,    // Sender of the transaction.
         // this action will fail
         t.send(tx_id, payer, true);
 
-   eosio::print("Scheduled PLANET UPDATE with a delay of ", delay);
+  // eosio::print("Scheduled PLANET UPDATE with a delay of ", delay);
 }
 
 void universe::init_planet(uint64_t sector_id,
@@ -386,6 +389,11 @@ void universe::updateplanet(uint64_t id)
 
    _sectors.modify(planet, get_self(), [&](auto& p) {
       p.last_updated[update_type::event_update] = now();
+   });
+
+   _gstate.modify(_gstate.find(0), get_self(), [&](auto& s) {
+      s.last_updated_id = id;
+      eosio::print("\n Last up id:  ", s.last_updated_id);
    });
 }
 
