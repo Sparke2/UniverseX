@@ -31,14 +31,15 @@ class [[eosio::contract("universe_x")]] universe : public eosio::contract {
     struct [[eosio::class]] globalstate
     {
         uint64_t universe_id;
-        uint64_t last_update_cycle;
+        uint64_t last_update_cycle;     // Timestam of the last update cycle.
+        uint64_t last_updated_id;       // ID of the last updated planet. Needed for iterated updates.
         bool     cyclic_updates_allowed;
 
         uint64_t active_sectors = 0; // The number of map cells presented in the game currently.
         eosio::name ADMIN = "dexaraniiznx"_n;
 
         uint64_t primary_key() const { return universe_id; }
-        EOSLIB_SERIALIZE( globalstate, (universe_id)(last_update_cycle)(cyclic_updates_allowed)(active_sectors))
+        EOSLIB_SERIALIZE( globalstate, (universe_id)(last_update_cycle)(cyclic_updates_allowed)(active_sectors)(last_updated_id))
     };
 
     enum update_type { income_update, task_update, fleet_update, event_update };
@@ -190,9 +191,10 @@ class [[eosio::contract("universe_x")]] universe : public eosio::contract {
     [[eosio::action]] void erasemap(eosio::name acc, uint64_t iterations);
     [[eosio::action]] void setstate(eosio::name owner);
     [[eosio::action]] void updateplanet(uint64_t id);
-    [[eosio::action]] void updatemap(uint64_t min_cycles, // Minimal amount of `update_cycle`s that should pass since the last update
+    [[eosio::action]] void updatemap(    eosio::name acc, // Account name. Arg is passed to `require_auth` in deferred tx.
+                                     uint64_t min_cycles, // Minimal amount of `update_cycle`s that should pass since the last update
                                                           // to consider that a planet needs updating.
-                                         eosio::name acc, // Account name. Arg is passed to `require_auth` in deferred tx.
+                                    uint64_t iterations,  // Max number of update iterations to process. Needed for iterated update due to 30ms tx limit.
                                           uint64_t delay, // Interval of sending a replicated auto- updatemap tx.
                                             bool repeat);
     [[eosio::action]] void setcyclic(eosio::name acc, bool allowed);
