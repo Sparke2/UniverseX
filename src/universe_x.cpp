@@ -1,27 +1,39 @@
 #include <universe_x.hpp>
 #include <resolvers.hpp>
 
+void universe::eraseplayer(eosio::name acc) {
+   if(acc == ADMIN)
+   {
+      require_auth(ADMIN);
+   }
+   else
+   {
+      require_auth(acc);
+   }
+   
+   auto player = _players.find(acc.value);
+   _players.erase(player);
+}
+
 void universe::spawnplayer(eosio::name acc, uint64_t sector_id) {
    require_auth(acc);
     
-    /*
-   auto player = _players.find(N(acc));
+   auto player = _players.find(acc.value);
+
+   eosio_assert(player == _players.end(), "Can't spawn an existing player.");
+
    if(player == _players.end())
    {
       _players.emplace(get_self(), [&](auto& p) {
          p.account = acc;
+         p.last_spawned = now();
+         p.owned_planet_ids[0] = sector_id;
+         p.num_owned_planets = 1;
       });
-   }
-   */
+      
+      auto planet = _sectors.find(sector_id);
 
-   auto planet = _sectors.find(sector_id);
-   /*
-   eosio_assert((*planet).owner < 1, "Unable to change already owned planed");
-   eosio_assert((*planet).x > 2 && (*planet).x < 98, "Unable to claim planet at the border of the map (X)");
-   eosio_assert((*planet).y > 2 && (*planet).y < 98, "Unable to claim planet at the border of the map (Y)");
-   */
-
-   init_planet(sector_id,  // ID of the point at the map
+      init_planet(sector_id,  // ID of the point at the map
               (*planet).x, // x
               (*planet).y, // y
               120,         // temperature
@@ -42,6 +54,7 @@ void universe::spawnplayer(eosio::name acc, uint64_t sector_id) {
               0            // Cargoships  in orbital fleet
               );
 
+   }   
    eosio::print("\n Player joined! Congratulations ", acc);
 }
 
@@ -60,7 +73,7 @@ void universe::updatemap(eosio::name acc, uint64_t min_cycles, uint64_t iteratio
    auto _state = _gstate.find(0);
    if(_gstate.begin() == _gstate.end())
    {
-      initstate();
+      init_state();
    }
    else
    {
@@ -89,7 +102,18 @@ void universe::updatemap(eosio::name acc, uint64_t min_cycles, uint64_t iteratio
       }
       if(i == num_sectors)
       {
+         // Reset the updating position and update the planet 0
+         // because i will be incremented in the next iteration.
          i = 0;
+         planet = _sectors.find(i);
+         if((*planet).has_planet)
+         {
+            uint16_t passed_cycles = (now() - (*planet).last_updated[update_type::event_update]) / time_cycle_length;
+            if(passed_cycles >= min_cycles)
+            {
+               updateplanet(i);
+            }
+         }
       }
    }
 
@@ -184,6 +208,7 @@ void universe::addtask(eosio::name acc,         // Owner of the planet.
 
    auto planet = _sectors.find(id);
    eosio_assert((*planet).owner > 0, "No owner presented");
+   eosio_assert((*planet).colonization_start != 0, "Can not place order for a planet that is currently in colonization stage");
    eosio_assert((*planet).owner_name == acc, "Unable to access someone elses planet");
    task _task;
    _task.time_required = 0;
@@ -207,7 +232,7 @@ void universe::addtask(eosio::name acc,         // Owner of the planet.
          p.resources[resource_num::crystal] -= base_buildings[_task.task_goal_id].cost[resource_num::crystal] + (current_level * base_buildings[_task.task_goal_id].cost[resource_num::crystal] / 2);
          p.resources[resource_num::gas]     -= base_buildings[_task.task_goal_id].cost[resource_num::gas] + (current_level * base_buildings[_task.task_goal_id].cost[resource_num::gas] / 2);
 
-         _task.time_required = base_buildings[_task.task_goal_id].time_cost + base_buildings[_task.task_goal_id].time_cost * current_level;
+         _task.time_required = time_scale * (base_buildings[_task.task_goal_id].time_cost + base_buildings[_task.task_goal_id].time_cost * current_level);
 
          p.building_queue.push_back(_task);
       } 
@@ -225,7 +250,7 @@ void universe::addtask(eosio::name acc,         // Owner of the planet.
          p.resources[resource_num::crystal] -= base_ships[_task.task_goal_id].cost[resource_num::crystal] * quantity;
          p.resources[resource_num::gas]     -= base_ships[_task.task_goal_id].cost[resource_num::gas] * quantity;
 
-         _task.time_required = base_ships[_task.task_goal_id].time_cost * quantity;
+         _task.time_required = time_scale * (base_ships[_task.task_goal_id].time_cost * quantity);
 
          p.assembling_queue.push_back(_task);
       }
@@ -330,7 +355,7 @@ void universe::init_planet(uint64_t sector_id,
 
       p.planetary_fleet.id = "0";
 
-      for(uint16_t i = 0; i < time_update_types; i++)
+      for(uint16_t i = 0; i < update_types; i++)
       {
          p.last_updated.push_back(now());
       }
@@ -377,7 +402,10 @@ void universe::addplanet(eosio::name s, uint64_t x, uint64_t y, uint64_t id) {
 void universe::updateplanet(uint64_t id)
 {
    auto planet = _sectors.find(id);
-
+   if((*planet).colonization_start != 0)
+   {
+      mechanic_finish_colonization(id);
+   }
    resolve_building(id);
    resolve_assembling(id);
    resolve_fleets(id);
@@ -469,9 +497,6 @@ void universe::fleetorder(eosio::name acc, uint64_t planet_id, uint64_t destinat
       
       eosio_assert(p.resources[resource_num::gas] >= get_fuel_cost(_fleet), "Not enough GAS to pay for fleet fuel");
       p.resources[resource_num::gas] -= get_fuel_cost(_fleet);
-
-      eosio::print("\n Fleet ", _fleet.id, " gas cost:                ", get_fuel_cost(_fleet));
-      eosio::print("\n Fleet ", _fleet.id, " will be on a mission:    ", get_flight_time(_fleet));
    });
 }
 
@@ -583,11 +608,17 @@ void universe::setstate(eosio::name owner)
    }
 }
 
-void universe::clearstate()
+void universe::clear_state()
 {   
-   uint64_t counter = 0;
-   for( auto itr = _gstate.begin(); _gstate.begin() != _gstate.end(); counter++) {
+   for( auto itr = _gstate.begin(); _gstate.begin() != _gstate.end(); ) {
       itr = _gstate.erase(itr);
+   }
+}
+
+void universe::clear_players()
+{   
+   for( auto itr = _players.begin(); _players.begin() != _players.end(); ) {
+      itr = _players.erase(itr);
    }
 }
 
@@ -602,10 +633,11 @@ void universe::cleargame(eosio::name owner)
       eosio::print("\n\n Number of sectors to ERASE:   ",    (*state_table).active_sectors );
       erasemap(owner, (*state_table).active_sectors);
    }
-   clearstate();
+   clear_state();
+   clear_players();
 }
 
-void universe::initstate()
+void universe::init_state()
 {   
    _gstate.emplace(get_self(), [&](auto& s) {
          s.last_update_cycle = now();
@@ -628,7 +660,7 @@ void universe::initmap(eosio::name acc, uint64_t height, uint64_t width, uint64_
       // First check if the global state table exists
       // create it if not.
       counter = 0;
-      initstate();
+      init_state();
    }
 
    // Save the number of existing SECTORs for newly added ID offsets.
@@ -711,7 +743,7 @@ uint64_t universe::get_flight_time(fleet _fleet)
    {
       if ((base_ships[i].speed / time_per_distance) * get_distance(_fleet.home_id, _fleet.destination_id) > travel_time)
       {
-         travel_time = (base_ships[i].speed / time_per_distance) * get_distance(_fleet.home_id, _fleet.destination_id);
+         travel_time = time_scale * ((base_ships[i].speed / time_per_distance) * get_distance(_fleet.home_id, _fleet.destination_id));
       }
    }
    return travel_time;
@@ -827,4 +859,4 @@ uint64_t universe::get_resource_income(uint64_t planet_id, uint64_t resource_typ
     }
     */
 
-EOSIO_DISPATCH( universe, (cleargame)(setstate)(updatemap)(setcyclic)(setupdate)(adminmodify)(addtask)(spawnplayer)(adminit)(addplanet)(initmap)(erasemap)(updateplanet)(getstats)(fleetorder))
+EOSIO_DISPATCH( universe, (eraseplayer)(cleargame)(setstate)(updatemap)(setcyclic)(setupdate)(adminmodify)(addtask)(spawnplayer)(adminit)(addplanet)(initmap)(erasemap)(updateplanet)(getstats)(fleetorder))
