@@ -4,6 +4,9 @@ using namespace eosio;
 
     enum ships_num { battleship, cargoship, colonizer };
 
+    // Debugging constants
+    const eosio::name ADMIN = "dexaraniiznx"_n;
+
     // Global constants.
     const uint64_t max_building_task_index = 9;
     const uint64_t max_assembling_task_index = 11;
@@ -16,8 +19,9 @@ using namespace eosio;
                                              // the more the `time_per_distance` the longer it takes for a fleet
                                              // to reach its destination.
     const double   gas_per_distance  = 0.33; // Global multiplier of gas comsumption.
+    const double   time_scale        = 1.0;  // Global multiplier applied to each time-consuming process.
 
-    const uint16_t time_update_types = 4;
+    const uint64_t colonization_duration = 3600; // 30 minutes by default.
 
     // Resource incomes.
     // Incomes are calculated for 100 seconds period.
