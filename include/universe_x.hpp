@@ -25,7 +25,14 @@ class [[eosio::contract("universe_x")]] universe : public eosio::contract {
         eosio::name account;
 
         std::vector<uint64_t> owned_planet_ids;
-        eosio::name primary_key() const { return account; }
+        std::string           pgp_key;                       // Public key of the assimetric encryption,
+                                                             // necessary for on-chain private messages.
+        uint64_t              last_spawned;
+        uint64_t              num_owned_planets;
+
+        uint64_t primary_key() const { return account.value; }
+
+        EOSLIB_SERIALIZE( player, (account)(owned_planet_ids)(pgp_key)(last_spawned)(num_owned_planets))
     };
 
     struct [[eosio::class]] globalstate
@@ -42,6 +49,7 @@ class [[eosio::contract("universe_x")]] universe : public eosio::contract {
         EOSLIB_SERIALIZE( globalstate, (universe_id)(last_update_cycle)(cyclic_updates_allowed)(active_sectors)(last_updated_id))
     };
 
+    const uint16_t update_types = 4; // Preserves the length of the types of updates.
     enum update_type { income_update, task_update, fleet_update, event_update };
 
     enum task_type_num { building_task, assembling_task };
@@ -133,8 +141,20 @@ class [[eosio::contract("universe_x")]] universe : public eosio::contract {
         uint16_t size;           // 7 to 40
         //uint64_t building_slots; // 0 to 40 => Not yet implemented. For further updates.
 
+        // Decorative planet states
+        uint8_t type;            // Visual type of the planet
+                                 // 0 - Yellow
+                                 // 1 - Red
+                                 // 2 - Green
+                                 // 3 - Ice white
+
+        std::string name;        // Assigned by the owner of the planet.
+
         // Ownership status
         uint16_t owner; // Number of owners; reserved for future updates.
+
+        uint64_t colonization_start;
+        uint64_t colonization_duration;
 
         eosio::name owner_name;
 
@@ -189,6 +209,8 @@ class [[eosio::contract("universe_x")]] universe : public eosio::contract {
     [[eosio::action]] void addplanet(eosio::name acc, uint64_t x, uint64_t y, uint64_t id);
     [[eosio::action]] void initmap(eosio::name acc, uint64_t height, uint64_t width, uint64_t offsetx, uint64_t offsety, bool init_planets);
     [[eosio::action]] void erasemap(eosio::name acc, uint64_t iterations);
+
+    [[eosio::action]] void eraseplayer(eosio::name acc);
     [[eosio::action]] void setstate(eosio::name owner);
     [[eosio::action]] void updateplanet(uint64_t id);
     [[eosio::action]] void updatemap(    eosio::name acc, // Account name. Arg is passed to `require_auth` in deferred tx.
@@ -198,10 +220,9 @@ class [[eosio::contract("universe_x")]] universe : public eosio::contract {
                                           uint64_t delay, // Interval of sending a replicated auto- updatemap tx.
                                             bool repeat);
     [[eosio::action]] void setcyclic(eosio::name acc, bool allowed);
+    [[eosio::action]] void getstats(uint64_t planet_id);
 
     [[eosio::action]] void fleetorder(eosio::name acc, uint64_t planet_id, uint64_t destination_id, uint64_t order_type, uint64_t battleship_count, uint64_t cargoship_count, uint64_t colonizer_count, uint64_t cargo_metal,  uint64_t cargo_crystal,  uint64_t cargo_gas);
-
-    [[eosio::action]] void getstats(uint64_t planet_id);
 
     // Player actions
     [[eosio::action]] void addtask(eosio::name acc,        // Owner of the planet.
@@ -222,16 +243,19 @@ class [[eosio::contract("universe_x")]] universe : public eosio::contract {
     void resolve_fleets(uint64_t planet_id);
     void resolve_income(uint64_t id);
 
-    void fleet_action_arrive_home(fleet _fleet);
+    void fleet_action_arrive(fleet _fleet, bool _home);
     void fleet_action_attack(fleet _attackers);
-    void fleet_action_transport(uint64_t planet_id);
-    void fleet_action_relocate(uint64_t planet_id);
-    void fleet_action_colonize(uint64_t planet_id);
+    void fleet_action_transport(fleet _fleet);
+    void fleet_action_relocate(fleet _fleet);
+    void fleet_action_colonize(fleet _fleet);
 
-    void clearstate();
-    void initstate();
+    void clear_state();
+    void clear_players();
+    void init_state();
 
     void mechanic_apply_damage(fleet damaged_fleet, uint64_t damage_amount, bool is_attacking);
+    void mechanic_start_colonization(uint64_t planet_id, eosio::name colonizator);
+    void mechanic_finish_colonization(uint64_t planet_id);
     
     void init_planet(uint64_t sector_id,
                  uint64_t x,
