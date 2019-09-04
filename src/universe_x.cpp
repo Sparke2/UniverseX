@@ -442,6 +442,11 @@ void universe::fleetorder(eosio::name acc, uint64_t planet_id, uint64_t destinat
    eosio_assert((*home).resources[resource_num::crystal] >= cargo_crystal, "Not enough crystals");
    eosio_assert((*home).resources[resource_num::gas]     >= cargo_gas, "Not enough gas");
 
+   if(order_type == order_num::colonize)
+   {
+      eosio_assert(colonizer_count > 0, "At least 1 colonizer is required to proceed with the colonization task");
+   }
+
    // Subtract ships.
    _sectors.modify(home, get_self(), [&](auto& p) {
       p.planetary_fleet.ships[ships_num::battleship] -= battleship_count;
