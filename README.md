@@ -1,3 +1,3 @@
 # UniverseX game developed for EOS
 
-Author: @Dexaran
+Author: [@Dexaran](https://github.com/Dexaran)
