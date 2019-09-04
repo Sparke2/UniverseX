@@ -141,23 +141,22 @@ void universe::resolve_fleets(uint64_t planet_id)
 
       // DEBUG ONLY!
       // DELETE FROM DEPLOY VERSION
-      
+      /*
          if((*planet).fleets[i].order == order_num::travel_home)
          {
             fleet_action_arrive_home((*planet).fleets[i]);
-            eosio::print("\n Arriving home \n", 0);
          }
-
-      /*
+      */
+      
       if((*planet).fleets[i].leave_time + 2 * (*planet).fleets[i].travel_time < now())
       {
          // If the amount of time passed is greater than the amount of travel time to the destination
          // and back to the planet, consider that the fleet task is finished.
 
          //erase_candidate.push_back(i); << Arrive_Home will erase fleet on its own.
-         fleet_action_arrive_home((*planet).fleets[i]);
+         fleet_action_arrive((*planet).fleets[i], true);
       } 
-      */
+      
       else if((*planet).fleets[i].leave_time + (*planet).fleets[i].travel_time <= now())
       {
          // The fleet reached its destination.
@@ -167,16 +166,15 @@ void universe::resolve_fleets(uint64_t planet_id)
                   break;
                case order_num::attack:
                   fleet_action_attack((*planet).fleets[i]);
-                  eosio::print("\n Attack executed! \n", 11);
                   break;
                case order_num::transport:
-               // Transport resolve here.
+                  fleet_action_attack((*planet).fleets[i]);
                   break;
                case order_num::relocate:
-               // Dislocation update resolve here.
+                  fleet_action_arrive((*planet).fleets[i], false);
                   break;
                case order_num::colonize:
-               // Colonization of a new planet here.
+                  fleet_action_colonize((*planet).fleets[i]);
                   break;
                default:
                   break;
@@ -219,13 +217,7 @@ uint64_t calculate_remaining_ships(universe::fleet _fleet)
    uint64_t ships_remaining = 0;
    for (uint64_t ship_type = 0; ship_type < base_ships.size(); ship_type++)  
    {
-      eosio::print("\n ....... calcing def ships:  ", ship_type, "  count:  ", _fleet.ships[ship_type]);
       ships_remaining += _fleet.ships[ship_type];
-   }
-
-   if(_fleet.id == "0")
-   {
-      eosio::print("\n Remaining ships of defenders:  ", ships_remaining);
    }
    return ships_remaining;
 }
@@ -240,9 +232,17 @@ uint64_t calculate_fleet_cargo(universe::fleet _fleet)
    return cargo;
 }
 
-void universe::fleet_action_arrive_home(fleet _fleet)
+void universe::fleet_action_arrive(fleet _fleet, bool _home)
 {
+   // Consider that the fleet is travelling home by default
+   // most of the actions are fleet home arrivals.
    auto planet = _sectors.find(_fleet.home_id);
+
+   if(!_home)
+   {
+      // Consider that the fleet is changing location and approaching its target planet.
+      planet = _sectors.find(_fleet.destination_id);
+   }
 
    _sectors.modify(planet, get_self(), [&](auto& p) {
       p.resources[resource_num::metal] += _fleet.cargo[resource_num::metal];
@@ -291,14 +291,6 @@ void universe::fleet_action_attack(fleet _attackers)
    uint64_t attackers_remaining = calculate_remaining_ships(_attackers);
    uint64_t defenders_remaining = calculate_remaining_ships((*defender_planet).planetary_fleet);
 
-   eosio::print("\n Attack in progress... ..........", 0);
-   eosio::print("\n Attack in progress... ///.......", 0);
-   eosio::print("\n Attack in progress... ...........", 0);
-
-   eosio::print("\n \n Remaining attackers: ", attackers_remaining);
-   eosio::print("\n \n Remaining defenders: ", defenders_remaining);
-
-
    if(attackers_remaining > 0 && defenders_remaining == 0)
    {
       // Attackers win
@@ -306,7 +298,6 @@ void universe::fleet_action_attack(fleet _attackers)
       // Calculate attackers cargo and planet overall resources quantity.
       // Calculate "resource ratio" which is equal to planet_resources/cargo.
       // Withdraw "resource ratio" * each_resource_type quantity of resources.
-      eosio::print("\n \n Attackers win ", 0);
 
       uint64_t cargo = calculate_fleet_cargo(_attackers);
       uint64_t planetary_resources = (*defender_planet).resources[resource_num::metal] + (*defender_planet).resources[resource_num::crystal] + (*defender_planet).resources[resource_num::gas];
@@ -314,7 +305,6 @@ void universe::fleet_action_attack(fleet _attackers)
       if(cargo < planetary_resources)
       {
          resource_withdrawal_ratio = (double)cargo / (double)planetary_resources;
-         eosio::print(" \n \n Collect ratio : ", resource_withdrawal_ratio);
       }
 
       // Load attackers with the rewarded resources from the defeated planet.
@@ -334,7 +324,6 @@ void universe::fleet_action_attack(fleet _attackers)
             }
          }
       });
-
 
       _sectors.modify(defender_planet, get_self(), [&](auto& p) {
          if(resource_withdrawal_ratio == 1.0)
@@ -368,10 +357,44 @@ void universe::fleet_action_attack(fleet _attackers)
          }
       });
    }
-
-
-
    // Send attackers back home.
+}
+    
+    
+void universe::mechanic_start_colonization(uint64_t planet_id, eosio::name colonizator)
+{
+   auto player = _players.find(colonizator.value);
+
+   _players.modify(player, get_self(), [&](auto& p) {
+      p.owned_planet_ids[p.num_owned_planets] = planet_id;
+      p.num_owned_planets++;
+   });
+
+
+   auto planet = _sectors.find(planet_id);
+   _sectors.modify(planet, get_self(), [&](auto& p) {
+      p.owner = 1;
+      p.owner_name = colonizator;
+      p.colonization_start = now();
+
+      // The more planets a player has
+      // the more time each new planet takes to colonize.
+      p.colonization_duration = time_scale * ((*player).num_owned_planets) * colonization_duration;
+   });
+}
+    
+    
+void universe::mechanic_finish_colonization(uint64_t planet_id)
+{
+   auto planet = _sectors.find(planet_id);
+   if((*planet).colonization_start + (*planet).colonization_duration <= now())
+   {
+      _sectors.modify(planet, get_self(), [&](auto& p) {
+         p.colonization_start = 0;
+
+         // Init starting structures... not in this release though.
+      });
+   }
 }
 
 void universe::mechanic_apply_damage(fleet damaged_fleet, uint64_t damage_amount, bool is_attacking)
@@ -407,7 +430,6 @@ void universe::mechanic_apply_damage(fleet damaged_fleet, uint64_t damage_amount
             damaged_fleet.ships[i] = 0;
          }
 
-
          // Place salvageable wreckages for each of `destroyed_ships`
          // ^ not yet implemented.    
       }
@@ -420,17 +442,14 @@ void universe::mechanic_apply_damage(fleet damaged_fleet, uint64_t damage_amount
          if(p.fleets[i].id == damaged_fleet.id)
          {
             p.fleets[i] = damaged_fleet;
-            eosio::print("\n Size  of  evaluatable fleet: ", calculate_remaining_ships(p.fleets[i]));
          }
       }
    }
    else
    {
       p.planetary_fleet = damaged_fleet;
-      eosio::print("\n Size  of  evaluatable fleet (PLANETARY): ", calculate_remaining_ships(p.planetary_fleet));
    }
    
-
    /*
    if( !is_attacking )
    {
@@ -440,7 +459,60 @@ void universe::mechanic_apply_damage(fleet damaged_fleet, uint64_t damage_amount
    });
 }
 
-void universe::fleet_action_transport(uint64_t planet_id)
+void universe::fleet_action_transport(fleet _fleet)
 {
+   auto planet = _sectors.find(_fleet.destination_id);
 
+   _sectors.modify(planet, get_self(), [&](auto& p) {
+      p.resources[resource_num::metal] += _fleet.cargo[resource_num::metal];
+      p.resources[resource_num::crystal] += _fleet.cargo[resource_num::crystal];
+      p.resources[resource_num::gas] += _fleet.cargo[resource_num::gas];
+   });
+
+   auto home_planet = _sectors.find(_fleet.home_id);
+   for ( uint64_t i = 0; i < (*home_planet).fleets.size(); i++ )
+   {
+      if((*home_planet).fleets[i].id == _fleet.id)
+      {
+         _sectors.modify(home_planet, get_self(), [&](auto& h) {
+            h.fleets[i].cargo[resource_num::metal] = 0;
+            h.fleets[i].cargo[resource_num::crystal] = 0;
+            h.fleets[i].cargo[resource_num::gas] = 0;
+         });
+      }
+   }
+}
+
+void universe::fleet_action_colonize(fleet _fleet)
+{
+   auto planet = _sectors.find(_fleet.destination_id);
+
+   _sectors.modify(planet, get_self(), [&](auto& p) {
+      p.resources[resource_num::metal] += _fleet.cargo[resource_num::metal];
+      p.resources[resource_num::crystal] += _fleet.cargo[resource_num::crystal];
+      p.resources[resource_num::gas] += _fleet.cargo[resource_num::gas];
+
+      for ( uint64_t i=0; i<p.fleets.size(); i++ )
+      {
+         if(p.fleets[i].id == _fleet.id)
+         {
+            for (uint64_t ship_type = 0; ship_type < base_ships.size(); ship_type++)
+               {
+                  // Copy ships from the Task-driven fleet
+                  // to the planetary orbital fleet.
+                  p.planetary_fleet.ships[ship_type] += p.fleets[i].ships[ship_type];
+                  if(ship_type == ships_num::colonizer)
+                  {
+                     // Destroy 1 colonizer
+                     // that was used to colonize this planet.
+                     p.planetary_fleet.ships[ships_num::colonizer] -= 1;
+                  }
+                  p.fleets[i].ships[ship_type] = 0;
+               }
+            }
+         }
+   });
+
+   // Now place the planet into colonization stage.
+   mechanic_start_colonization((*planet).id, (*_sectors.find(_fleet.home_id)).owner_name);
 }
