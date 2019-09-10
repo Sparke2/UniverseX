@@ -14,12 +14,12 @@ cleos -u https://api.eosn.io set contract dexaraniiznx '/home/dex/Desktop/univer
 
 
 ################ Beginning the game
-### Generate `height` X `width` resolution map
-### with X/Y offset of the left upper corner
-### init_planet determines if empty sectors will be filled with planets (require RAM)
-### or left empty (save your RAM) 
-### 0 - false
-### 1 - true
+###### Generate `height` X `width` resolution map
+###### with X/Y offset of the left upper corner
+###### init_planet determines if empty sectors will be filled with planets (require RAM)
+###### or left empty (save your RAM) 
+###### 0 - false
+###### 1 - true
 
 cleos -u https://api.eosn.io push action dexaraniiznx initmap '{"acc":"dexaraniiznx","height":"8","width":"7","offsetx":"0","offsety":"0","init_planets":"1"}' -p dexaraniiznx@active
 
