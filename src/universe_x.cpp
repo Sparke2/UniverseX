@@ -15,6 +15,23 @@ void universe::eraseplayer(eosio::name acc) {
    _players.erase(player);
 }
 
+void universe::despwnplayer(eosio::name acc) {
+   require_auth(acc);
+
+   auto player = _players.find(acc.value);
+   eosio_assert(player != _players.end(), "Can't despawn non-existing player.");
+
+   for (uint64_t i = 0; i < (*player).num_owned_planets; i++)
+   {
+      auto planet = _sectors.find( (*player).owned_planet_ids[0] );
+      _sectors.erase(planet);
+   }
+
+    //  auto planet = _sectors.find( (*player).owned_planet_ids[0] );
+    //  _sectors.erase(planet);
+   _players.erase(player);
+}
+
 void universe::spawnplayer(eosio::name acc, uint64_t sector_id) {
    require_auth(acc);
     
@@ -27,7 +44,8 @@ void universe::spawnplayer(eosio::name acc, uint64_t sector_id) {
       _players.emplace(get_self(), [&](auto& p) {
          p.account = acc;
          p.last_spawned = now();
-         p.owned_planet_ids[0] = sector_id;
+         p.owned_planet_ids.push_back(sector_id);
+         eosio::print("Inserted planet ", p.owned_planet_ids[0]);
          p.num_owned_planets = 1;
       });
       
@@ -863,4 +881,4 @@ uint64_t universe::get_resource_income(uint64_t planet_id, uint64_t resource_typ
     }
     */
 
-EOSIO_DISPATCH( universe, (eraseplayer)(cleargame)(setstate)(updatemap)(setcyclic)(setupdate)(adminmodify)(addtask)(spawnplayer)(adminit)(addplanet)(initmap)(erasemap)(updateplanet)(getstats)(fleetorder))
+EOSIO_DISPATCH( universe, (eraseplayer)(cleargame)(setstate)(updatemap)(setcyclic)(setupdate)(adminmodify)(addtask)(spawnplayer)(despwnplayer)(adminit)(addplanet)(initmap)(erasemap)(updateplanet)(getstats)(fleetorder))
