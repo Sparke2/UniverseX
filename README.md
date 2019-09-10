@@ -2,6 +2,8 @@
 
 Author: [@Dexaran](https://github.com/Dexaran)
 
+The contract is deployed at this address on EOS mainnet: [dexaraniiznx](https://eosauthority.com/account?account=dexaraniiznx&scope=dexaraniiznx&table=sector&limit=10&mode=contract&sub=tables)
+
 
 # Contract deployment and interactions sequences
 
