@@ -226,7 +226,7 @@ void universe::addtask(eosio::name acc,         // Owner of the planet.
 
    auto planet = _sectors.find(id);
    eosio_assert((*planet).owner > 0, "No owner presented");
-   eosio_assert((*planet).colonization_start != 0, "Can not place order for a planet that is currently in colonization stage");
+   eosio_assert((*planet).colonization_start == 0, "Can not place order for a planet that is currently in colonization stage");
    eosio_assert((*planet).owner_name == acc, "Unable to access someone elses planet");
    task _task;
    _task.time_required = 0;
