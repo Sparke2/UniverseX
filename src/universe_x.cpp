@@ -635,7 +635,6 @@ void universe::cleargame(eosio::name owner)
    auto state_table = _gstate.find(0);
    if(state_table != _gstate.end())
    {
-      eosio::print("\n\n Number of sectors to ERASE:   ",    (*state_table).active_sectors );
       erasemap(owner, (*state_table).active_sectors);
    }
    clear_state();
