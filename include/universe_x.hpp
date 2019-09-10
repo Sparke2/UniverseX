@@ -131,7 +131,7 @@ class [[eosio::contract("universe_x")]] universe : public eosio::contract {
         uint64_t y;
 
         // Planet persistence and upgradeability
-        std::vector<uint128_t> last_updated;
+        std::vector<uint64_t> last_updated;
 
         // Habitability status
         bool has_planet;
