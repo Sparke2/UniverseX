@@ -1,3 +1,5 @@
+#pragma once
+
 #include <universe_x.hpp>
 
 
