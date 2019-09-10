@@ -351,6 +351,7 @@ void universe::init_planet(uint64_t sector_id,
       p.size = size;
       p.owner = owner;
       p.owner_name = owner_name;
+      p.colonization_start = 0; // Planet is already colonized
 
 /*
       eosio::print("\n X  ", x);
