@@ -234,6 +234,7 @@ class [[eosio::contract("universe_x")]] universe : public eosio::contract {
                            uint64_t quantity,              // For assembling tasks only! Quantity of the ships being assembled.
                            bool autoupdate);               // When set to TRUE the contract will queue a deferred TX to complete task.
     [[eosio::action]] void spawnplayer(eosio::name acc, uint64_t planet_id);
+    [[eosio::action]] void despwnplayer(eosio::name acc);
 
     [[eosio::action]] void adminit(eosio::name acc, uint64_t planet_id, uint64_t x, uint64_t y, uint64_t battleships, uint64_t cargoships, uint64_t resource_metal, uint64_t resource_gas);
 
