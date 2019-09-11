@@ -3,7 +3,6 @@
 #include <eosiolib/eosio.hpp>
 #include <eosiolib/eosio.hpp>
 #include <eosiolib/system.hpp>
-#include <eosiolib/crypto.hpp>
 #include <vector>
 #include <eosiolib/transaction.hpp>
 #include <consts.hpp>
