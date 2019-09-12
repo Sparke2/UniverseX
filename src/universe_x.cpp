@@ -291,7 +291,6 @@ void universe::setupdate(eosio::name from,    // Sender of the transaction.
                               uint64_t delay, // Delay of the deferred tx.
                               uint64_t tx_id) // ID of the deferred tx (used for unnecessary tx replacement).
 {
-   require_auth(from);
    eosio::transaction t{};
         // always double check the action name as it will fail silently
         // in the deferred transaction
@@ -299,10 +298,10 @@ void universe::setupdate(eosio::name from,    // Sender of the transaction.
             // when sending to _self a different authorization can be used
             // otherwise _self must be used
 
-            eosio::permission_level(from, "active"_n),
-                                                _self, // who will receive this call
-                                     "updateplanet"_n, // function [action] call name
-                           std::make_tuple(id)); // arguments for the action
+            eosio::permission_level(_self, "active"_n),
+                                    _self, // who will receive this call
+                         "updateplanet"_n, // function [action] call name
+                     std::make_tuple(id)); // arguments for the action
 
         // set delay in seconds
         t.delay_sec = delay;
@@ -313,7 +312,7 @@ void universe::setupdate(eosio::name from,    // Sender of the transaction.
         // with this senderId should be replaced
         // if set to false and this senderId already exists
         // this action will fail
-        t.send(tx_id, payer, true);
+        t.send(tx_id, _self, true);
 
   // eosio::print("Scheduled PLANET UPDATE with a delay of ", delay);
 }
