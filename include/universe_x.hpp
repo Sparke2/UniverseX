@@ -1,7 +1,6 @@
 #pragma once
 
 #include <eosiolib/eosio.hpp>
-#include <eosiolib/eosio.hpp>
 #include <eosiolib/system.hpp>
 #include <vector>
 #include <eosiolib/transaction.hpp>
