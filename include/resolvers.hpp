@@ -142,27 +142,35 @@ void universe::resolve_fleets(uint64_t planet_id)
          }
       */
       
+      /*
       if((*planet).fleets[i].leave_time + 2 * (*planet).fleets[i].travel_time < now())
       {
          // If the amount of time passed is greater than the amount of travel time to the destination
          // and back to the planet, consider that the fleet task is finished.
 
+         
+
          //erase_candidate.push_back(i); << Arrive_Home will erase fleet on its own.
          fleet_action_arrive((*planet).fleets[i], true);
       } 
       
-      else if((*planet).fleets[i].leave_time + (*planet).fleets[i].travel_time <= now())
+      else
+      */
+      if((*planet).fleets[i].leave_time + (*planet).fleets[i].travel_time <= now())
       {
          // The fleet reached its destination.
             switch ( (*planet).fleets[i].order )
             {
                case order_num::idle:
                   break;
+               case order_num::travel_home:
+                  fleet_action_arrive((*planet).fleets[i], true);
+                  break;
                case order_num::attack:
                   fleet_action_attack((*planet).fleets[i]);
                   break;
                case order_num::transport:
-                  fleet_action_attack((*planet).fleets[i]);
+                  fleet_action_transport((*planet).fleets[i]);
                   break;
                case order_num::relocate:
                   fleet_action_arrive((*planet).fleets[i], false);
@@ -261,6 +269,8 @@ void universe::fleet_action_arrive(fleet _fleet, bool _home)
 
 void universe::fleet_action_attack(fleet _attackers)
 {
+   updateplanet(_attackers.destination_id);
+
    // Fight.
    uint64_t defender_id = _attackers.destination_id;
    auto defender_planet = _sectors.find(defender_id);
@@ -352,6 +362,7 @@ void universe::fleet_action_attack(fleet _attackers)
       });
    }
    // Send attackers back home.
+   updateplanet(_attackers.home_id);
 }
     
     
@@ -431,6 +442,7 @@ void universe::mechanic_apply_damage(fleet damaged_fleet, uint64_t damage_amount
 
    if(damaged_fleet.id != "0")
    {
+      // Assign damage to attacking fleet
       for ( uint64_t i=0; i<p.fleets.size(); i++ )
       {
          if(p.fleets[i].id == damaged_fleet.id)
@@ -441,6 +453,7 @@ void universe::mechanic_apply_damage(fleet damaged_fleet, uint64_t damage_amount
    }
    else
    {
+      // Assign damage to planetary fleet
       p.planetary_fleet = damaged_fleet;
    }
    
@@ -472,6 +485,7 @@ void universe::fleet_action_transport(fleet _fleet)
             h.fleets[i].cargo[resource_num::metal] = 0;
             h.fleets[i].cargo[resource_num::crystal] = 0;
             h.fleets[i].cargo[resource_num::gas] = 0;
+            h.fleets[i].order = order_num::travel_home;
          });
       }
    }
