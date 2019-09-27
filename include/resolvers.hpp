@@ -1,5 +1,3 @@
-#pragma once
-
 #include <universe_x.hpp>
 
 
@@ -77,12 +75,6 @@ void universe::resolve_assembling(uint64_t planet_id)
 {
    auto planet = _sectors.find(planet_id);
    eosio_assert((*planet).has_planet, "The destination must be a planet!");
-
-        // TASK TYPES:
-        // 8  assemble battleships
-        // 9  assemble cargoships
-        // 10 assemble colonizer
-
    task _task;
    
    if(!(*planet).assembling_queue.empty())
