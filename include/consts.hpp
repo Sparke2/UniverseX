@@ -46,9 +46,9 @@ using namespace eosio;
         // 4 recycler
 
         /* Combat stats. */
-        uint64_t power;
-        uint64_t durability;
-        uint64_t cargo;
+        uint16_t power;
+        uint16_t durability;
+        uint16_t cargo;
 
         /* Not implemented. */
         //uint64_t crew; // Not yet implemented; reserved for further updates.
@@ -57,18 +57,18 @@ using namespace eosio;
         //uint64_t speed; // Not yet implemented; reserved for further updates.
 
         /* Building costs. */
-        std::vector<uint64_t> cost;
+        std::vector<uint16_t> cost;
         uint64_t time_cost;
 
         /* Flight costs    */
-        uint64_t gas_cost_launch;
-        uint64_t gas_cost_travel;
-        uint64_t speed;
+        uint16_t gas_cost_launch;
+        uint16_t gas_cost_travel;
+        uint16_t speed;
     };
 
     struct [[eosio::class]] base_building
     {
-        std::vector<uint64_t> cost;
+        std::vector<uint16_t> cost;
         uint16_t time_cost;
     };
 
@@ -82,7 +82,7 @@ using namespace eosio;
     std::vector<ship> base_ships = { 
         {
             // Battleship
-            .type            = 0,
+            //.type            = 0,
             .power           = 100,
             .durability      = 150,
             .cargo           = 20,
@@ -94,7 +94,7 @@ using namespace eosio;
         },
         {
             // Cargoship
-            .type            = 1,
+            //.type            = 1,
             .power           = 10,
             .durability      = 250,
             .cargo           = 500,
@@ -106,7 +106,7 @@ using namespace eosio;
         },
         {
             // Colonizer
-            .type            = 2,
+            //.type            = 2,
             .power           = 10,
             .durability      = 700,
             .cargo           = 350,
