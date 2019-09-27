@@ -387,6 +387,7 @@ void universe::init_planet(uint64_t sector_id,
       p.planetary_fleet.cargo.clear();
 
       p.planetary_fleet.id = "0";
+      p.planetary_fleet.home_id = sector_id;
 
       for(uint16_t i = 0; i < update_types; i++)
       {
@@ -452,10 +453,12 @@ void universe::updateplanet(uint64_t id)
       p.last_updated[update_type::event_update] = now();
    });
 
+/*
    _gstate.modify(_gstate.find(0), get_self(), [&](auto& s) {
       s.last_updated_id = id;
       eosio::print("\n Last up id:  ", s.last_updated_id);
    });
+*/
 }
 
 void universe::fleetorder(eosio::name acc, uint64_t planet_id, uint64_t destination_id, uint64_t order_type, uint64_t battleship_count, uint64_t cargoship_count, uint64_t colonizer_count, uint64_t cargo_metal,  uint64_t cargo_crystal,  uint64_t cargo_gas)
@@ -468,12 +471,12 @@ void universe::fleetorder(eosio::name acc, uint64_t planet_id, uint64_t destinat
    eosio_assert((*target).has_planet, "Destination sector must have a planet");
 
    eosio_assert((*home).planetary_fleet.ships[ships_num::battleship] >= battleship_count, "Not enough battleships to send");
-   eosio_assert((*home).planetary_fleet.ships[ships_num::cargoship]  >= cargoship_count, "Not enough cargoships to send");
-   eosio_assert((*home).planetary_fleet.ships[ships_num::colonizer]  >= colonizer_count, "Not enough colonizers to send");
+   eosio_assert((*home).planetary_fleet.ships[ships_num::cargoship]  >= cargoship_count,  "Not enough cargoships to send");
+   eosio_assert((*home).planetary_fleet.ships[ships_num::colonizer]  >= colonizer_count,  "Not enough colonizers to send");
 
-   eosio_assert((*home).resources[resource_num::metal]   >= cargo_metal, "Not enough metal");
+   eosio_assert((*home).resources[resource_num::metal]   >= cargo_metal,   "Not enough metal");
    eosio_assert((*home).resources[resource_num::crystal] >= cargo_crystal, "Not enough crystals");
-   eosio_assert((*home).resources[resource_num::gas]     >= cargo_gas, "Not enough gas");
+   eosio_assert((*home).resources[resource_num::gas]     >= cargo_gas,     "Not enough gas");
 
    if(order_type == order_num::colonize)
    {
