@@ -223,9 +223,15 @@ class [[eosio::contract("universe_x")]] universe : public eosio::contract {
     [[eosio::action]] void fleetorder(eosio::name acc, uint64_t planet_id, uint64_t destination_id, uint64_t order_type, uint64_t battleship_count, uint64_t cargoship_count, uint64_t colonizer_count, uint64_t cargo_metal,  uint64_t cargo_crystal,  uint64_t cargo_gas);
 
     // Player actions
-    [[eosio::action]] void addtask(eosio::name acc,        // Owner of the planet.
+    [[eosio::action]] void buildtask(eosio::name acc,      // Owner of the planet.
                            uint64_t id,                    // ID of the planet to add a task to.
-                           uint64_t type,                  // Task type: 0 - building, 1 - assembling ships.
+                           uint64_t task_id,               // Task ID: id of the buildable structure or assembled ship
+                                                           //          watch `building_num::` for building IDs
+                                                           //          watch `ships_num::`    for shio IDs (located at consts.hpp)
+                           bool autoupdate);               // When set to TRUE the contract will queue a deferred TX to complete task.
+
+    [[eosio::action]] void assembletask(eosio::name acc,   // Owner of the planet.
+                           uint64_t id,                    // ID of the planet to add a task to.
                            uint64_t task_id,               // Task ID: id of the buildable structure or assembled ship
                                                            //          watch `building_num::` for building IDs
                                                            //          watch `ships_num::`    for shio IDs (located at consts.hpp)
