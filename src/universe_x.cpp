@@ -211,14 +211,55 @@ void universe::adminmodify(eosio::name acc,          // ADMIN account only
    });
 }
 
-
-
-
-void universe::addtask(eosio::name acc,         // Owner of the planet.
+void universe::assembletask(eosio::name acc,         // Owner of the planet.
                            uint64_t id,         // ID of the planet to add a task to.
-                           uint64_t type,       // Task type: 0 - building, 1 - assembling ships
-                           uint64_t task_id,    // Task ID: id of the buildable structure or assembled ship
-                           uint64_t quantity,   // For assembling tasks only! Quantity of the ships being assembled.
+                           uint64_t task_id,    // Task ID: id of the buildable structure
+                           uint64_t quantity,    // Task ID: id of the buildable structure
+                           bool     autoupdate) // When set to TRUE the contract will queue a deferred TX to complete task.
+{
+   require_auth(acc);
+
+   auto planet = _sectors.find(id);
+   eosio_assert((*planet).owner > 0, "No owner presented");
+   eosio_assert((*planet).colonization_start == 0, "Can not place order for a planet that is currently in colonization stage");
+   eosio_assert((*planet).owner_name == acc, "Unable to access someone elses planet");
+   task _task;
+   _task.time_required = 0;
+   _task.start_time = now();
+   _task.quantity = quantity;
+   _task.task_goal_id = task_id;
+
+   _sectors.modify(planet, get_self(), [&](auto& p) {
+   
+         // Assemble ships task.
+         eosio_assert(p.planetary_buildings[building_num::assembly].level > 0, "Planet does not have an assembly to build ships");
+         eosio_assert(quantity > 0, "Quantity must be >0; assembling 0 ships make unnecessary CPU usage");
+
+         eosio_assert(p.resources[resource_num::metal]   >= base_ships[_task.task_goal_id].cost[resource_num::metal] * quantity, "Not enough metal");
+         eosio_assert(p.resources[resource_num::crystal] >= base_ships[_task.task_goal_id].cost[resource_num::crystal] * quantity, "Not enough crystals");
+         eosio_assert(p.resources[resource_num::gas]     >= base_ships[_task.task_goal_id].cost[resource_num::gas] * quantity, "Not enough gas");
+
+
+         p.resources[resource_num::metal]   -= base_ships[_task.task_goal_id].cost[resource_num::metal] * quantity;
+
+         p.resources[resource_num::crystal] -= base_ships[_task.task_goal_id].cost[resource_num::crystal] * quantity;
+         p.resources[resource_num::gas]     -= base_ships[_task.task_goal_id].cost[resource_num::gas] * quantity;
+
+         _task.time_required = time_scale * (base_ships[_task.task_goal_id].time_cost * quantity);
+
+         p.assembling_queue.push_back(_task);
+   });
+
+   if(_task.time_required > 0 && autoupdate)
+   {
+      setupdate(acc, _self, id, _task.time_required + 10, now());
+   }
+}
+
+
+void universe::buildtask(eosio::name acc,         // Owner of the planet.
+                           uint64_t id,         // ID of the planet to add a task to.
+                           uint64_t task_id,    // Task ID: id of the buildable structure
                            bool     autoupdate) // When set to TRUE the contract will queue a deferred TX to complete task.
 {
    // Function for user-driven task placement.
@@ -230,18 +271,16 @@ void universe::addtask(eosio::name acc,         // Owner of the planet.
    eosio_assert((*planet).owner_name == acc, "Unable to access someone elses planet");
    task _task;
    _task.time_required = 0;
+   _task.start_time = now();
 
    _sectors.modify(planet, get_self(), [&](auto& p) {
       // 0 - 8 are building tasks while 8 - 10 are assemble tasks
       _task.task_goal_id = task_id;
       _task.start_time = now();
-      _task.quantity = quantity;
 
-      if (type == task_type_num::building_task) {
          // Building task.
 
          uint64_t current_level = p.planetary_buildings[_task.task_goal_id].level;
-         eosio_assert(quantity == 0, "Quantity is not available for BUILDING tasks");
          eosio_assert(p.resources[resource_num::metal]   >= base_buildings[_task.task_goal_id].cost[resource_num::metal] + (current_level * base_buildings[_task.task_goal_id].cost[resource_num::metal] / 2), "Not enough metal");
          eosio_assert(p.resources[resource_num::crystal] >= base_buildings[_task.task_goal_id].cost[resource_num::crystal] + (current_level * base_buildings[_task.task_goal_id].cost[resource_num::crystal] / 2), "Not enough crystals");
          eosio_assert(p.resources[resource_num::gas]     >= base_buildings[_task.task_goal_id].cost[resource_num::gas] + (current_level * base_buildings[_task.task_goal_id].cost[resource_num::gas] / 2), "Not enough gas");
@@ -253,32 +292,8 @@ void universe::addtask(eosio::name acc,         // Owner of the planet.
          _task.time_required = time_scale * (base_buildings[_task.task_goal_id].time_cost + base_buildings[_task.task_goal_id].time_cost * current_level);
 
          p.building_queue.push_back(_task);
-      } 
-      else if (type == task_type_num::assembling_task){
-         // Assemble ships task.
-         eosio_assert(p.planetary_buildings[building_num::assembly].level > 0, "Planet does not have an assembly to build ships");
-         eosio_assert(quantity > 0, "Quantity must be >0; assembling 0 ships make unnecessary CPU usage");
-
-         eosio_assert(p.resources[resource_num::metal]   >= base_ships[_task.task_goal_id].cost[resource_num::metal] * quantity, "Not enough metal");
-         eosio_assert(p.resources[resource_num::crystal] >= base_ships[_task.task_goal_id].cost[resource_num::crystal] * quantity, "Not enough crystals");
-         eosio_assert(p.resources[resource_num::gas]     >= base_ships[_task.task_goal_id].cost[resource_num::gas] * quantity, "Not enough gas");
-
-         p.resources[resource_num::metal]   -= base_ships[_task.task_goal_id].cost[resource_num::metal] * quantity;
-
-         p.resources[resource_num::crystal] -= base_ships[_task.task_goal_id].cost[resource_num::crystal] * quantity;
-         p.resources[resource_num::gas]     -= base_ships[_task.task_goal_id].cost[resource_num::gas] * quantity;
-
-         _task.time_required = time_scale * (base_ships[_task.task_goal_id].time_cost * quantity);
-
-         p.assembling_queue.push_back(_task);
-      }
-      else {
-         //eosio_assert(0 > 1, "Task type not found \n Try ", task_type_num::building_task, " for building\n", task_type_num::assembling_task, " for assembling");
-      }
    });
 
-
-   print("Task placed  ", now() ," type:   ", type);
    if(_task.time_required > 0 && autoupdate)
    {
       setupdate(acc, _self, id, _task.time_required + 10, now());
@@ -554,6 +569,7 @@ void universe::getstats(uint64_t planet_id)
 
 void universe::adminit(eosio::name acc, uint64_t planet_id, uint64_t x, uint64_t y, uint64_t battleships, uint64_t cargoships, uint64_t resource_metal, uint64_t resource_gas)
 {
+   require_auth(_self);
    auto planet   = _sectors.find(planet_id);
 
    _sectors.modify(planet, get_self(), [&](auto& p) {
@@ -561,19 +577,20 @@ void universe::adminit(eosio::name acc, uint64_t planet_id, uint64_t x, uint64_t
       p.y = y;
       p.has_planet = true;
       p.owner_name = acc;
+      p.owner = 1;
       
       // Fill the buildings Vector (array).
       for (uint64_t i = 0; i<max_building_task_index; i++)
          {
             building b;
             b.type = i;
-            b.level = 0;
+            b.level = 1;
             p.planetary_buildings.push_back(b);
          }
       // Fill the resources Vector (array).
-      p.resources.push_back(0); // Generate 0 Metal.
-      p.resources.push_back(0); // Generate 0 Crystal.
-      p.resources.push_back(0); // Generate 0 Gas.
+      p.resources.push_back(330); // Generate 330 Metal.
+      p.resources.push_back(330); // Generate 330 Crystal.
+      p.resources.push_back(330); // Generate 330 Gas.
 
       // Fill resources (Doesn't work if using `push_back` directly)
       p.resources[resource_num::metal] = resource_metal;
@@ -881,4 +898,4 @@ uint64_t universe::get_resource_income(uint64_t planet_id, uint64_t resource_typ
     }
     */
 
-EOSIO_DISPATCH( universe, (eraseplayer)(cleargame)(setstate)(updatemap)(setcyclic)(setupdate)(adminmodify)(addtask)(spawnplayer)(despwnplayer)(adminit)(addplanet)(initmap)(erasemap)(updateplanet)(getstats)(fleetorder))
+EOSIO_DISPATCH( universe, (eraseplayer)(cleargame)(setstate)(updatemap)(setcyclic)(setupdate)(adminmodify)(buildtask)(assembletask)(spawnplayer)(despwnplayer)(adminit)(addplanet)(initmap)(erasemap)(updateplanet)(getstats)(fleetorder))
