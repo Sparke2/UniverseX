@@ -18,7 +18,7 @@ class [[eosio::contract("universe_x")]] universe : public eosio::contract {
         universe( eosio::name receiver, eosio::name code, eosio::datastream<const char*> ds ): eosio::contract(receiver, code, ds),  _sectors(receiver, code.value), _players(receiver, code.value), _gstate(receiver, code.value)
     {}
 
-    struct [[eosio::class]] player
+    struct [[eosio::table]] player
     {
         eosio::name account;
 
@@ -33,24 +33,24 @@ class [[eosio::contract("universe_x")]] universe : public eosio::contract {
         EOSLIB_SERIALIZE( player, (account)(owned_planet_ids)(pgp_key)(last_spawned)(num_owned_planets))
     };
 
-    struct [[eosio::class]] globalstate
+    struct [[eosio::table]] globalstate
     {
         uint64_t universe_id;
         uint64_t last_update_cycle;     // Timestam of the last update cycle.
         uint64_t last_updated_id;       // ID of the last updated planet. Needed for iterated updates.
         bool     cyclic_updates_allowed;
 
-        uint64_t active_sectors = 0; // The number of map cells presented in the game currently.
-        eosio::name ADMIN = "dexaraniiznx"_n;
-
+        uint64_t active_sectors; // The number of map cells presented in the game currently.
         uint64_t primary_key() const { return universe_id; }
-        EOSLIB_SERIALIZE( globalstate, (universe_id)(last_update_cycle)(cyclic_updates_allowed)(active_sectors)(last_updated_id))
+
+        EOSLIB_SERIALIZE( globalstate, (universe_id)(last_update_cycle)(last_updated_id)(cyclic_updates_allowed)(active_sectors))
     };
 
     const uint16_t update_types = 4; // Preserves the length of the types of updates.
     enum update_type { income_update, task_update, fleet_update, event_update };
 
     enum task_type_num { building_task, assembling_task };
+
     struct [[eosio::class]] task
     {
         uint8_t task_goal_id;  // Identifies the ID of a structure being build
