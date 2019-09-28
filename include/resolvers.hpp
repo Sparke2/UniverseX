@@ -516,6 +516,7 @@ void universe::fleet_action_colonize(fleet _fleet)
                      p.planetary_fleet.ships[ships_num::colonizer] -= 1;
                   }
                   p.fleets[i].ships[ship_type] = 0;
+                  p.fleets[i].order = order_num::relocate;
                }
             }
          }
@@ -523,4 +524,6 @@ void universe::fleet_action_colonize(fleet _fleet)
 
    // Now place the planet into colonization stage.
    mechanic_start_colonization((*planet).id, (*_sectors.find(_fleet.home_id)).owner_name);
+
+   //fleet_action_arrive(_fleet, true);
 }
