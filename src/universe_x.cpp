@@ -104,7 +104,6 @@ void universe::updatemap(eosio::name acc, uint64_t min_cycles, uint64_t iteratio
    //auto num_sectors = std::distance(_sectors.cbegin(),_sectors.cend());
 
    uint64_t num_sectors = (*_gstate.find(0)).active_sectors;
-   //   eosio::print("\n STATE UUP id:  ", (*_state).last_updated_id);
    uint64_t count = 0;
    for (uint64_t i = (*_state).last_updated_id; i <= num_sectors && count < iterations; i++)
    {
@@ -133,6 +132,9 @@ void universe::updatemap(eosio::name acc, uint64_t min_cycles, uint64_t iteratio
             }
          }
       }
+      _gstate.modify(_state, get_self(), [&](auto& s) {
+         s.last_updated_id = i;
+      });
    }
 
    // *************************************
